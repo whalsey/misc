@@ -13,9 +13,10 @@ training, validation, test = network2.load_data_wrapper("data/mnist_expanded.pkl
 logging.info("TASK 1.3 C...")
 logging.info("INITIALIZING NETWORK...")
 
-f = open("task1_3c.csv", 'w')
+f = open("task1_3c_2.csv", 'w')
 
-for do in [.2, .4, .6, .8]:
+# for do in [.2, .4, .6, .8]:
+for do in [.8]:
     network = network2.Network([784, 30, 30, 10], cost=network2.CrossEntropyCost, dropout=do)
 
     logging.info("TRAINING NETWORK...")

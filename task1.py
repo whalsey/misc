@@ -262,7 +262,7 @@ for _ in range(3):
     network = network2.Network([784, 30, 10], cost=network2.CrossEntropyCost)
 
     logging.info("TRAINING NETWORK...")
-    evaluation_cost, evaluation_accuracy, training_cost, training_accuracy = network.SGD(training, 100, 100, 0.9, gmma=1, evaluation_data=validation)
+    evaluation_cost, evaluation_accuracy, training_cost, training_accuracy, _ = network.SGD(training, 100, 100, 0.9, gmma=1, evaluation_data=validation)
 
     logging.info("EVALUATING RESULTS...")
     results = network.accuracy(test)

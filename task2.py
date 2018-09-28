@@ -27,7 +27,7 @@ for _ in range(3):
     logging.info("EVALUATING RESULTS...")
     results = network.accuracy(test)
 
-    weight_np = np.array(weight_change)
+    # weight_np = np.array(weight_change)
 
     logging.info("WRITING RESULTS...")
     buff = "Iteration {}\n".format(_)
@@ -50,8 +50,8 @@ for _ in range(3):
 
     buff = "epoch," + ','.join([str(i) for i in range(100)]) + '\n'
     f.write(buff)
-    for i in range(weight_np.shape[1]):
-        buff = "w_change_{},".format(i) + ','.join([str(j) for j in weight_change[:][i]].to_tolist) + '\n'
+    for i in range(len(weight_change[0])):
+        buff = "w_change_{},".format(i) + ','.join([str(weight_change[j][i]) for j in range(len(weight_change))]) + '\n'
         f.write(buff)
 
     f.flush()
