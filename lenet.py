@@ -110,7 +110,7 @@ if __name__ == '__main__':
 
     percentChange = 1
 
-    f = open("lenet_results.csv", 'w')
+    f = open("lenet_results2.csv", 'w')
 
     report_freq = 10
 
