@@ -110,9 +110,9 @@ if __name__ == '__main__':
 
     percentChange = 1
 
-    f = open("lenet_results.csv", 'w')
+    f = open("lenet_results2.csv", 'w')
 
-    report_freq = 100
+    report_freq = 10
 
     cnn = cnnMNIST()
     train_acc = cnn.train(report_freq)
@@ -121,7 +121,7 @@ if __name__ == '__main__':
     buff = "lr,{},kp,{},bs,{}\n".format(0.0001, 0.5, 50)
     print(buff)
     f.write(buff)
-    buff = "epoch," + ','.join([str(i)*report_freq for i in range(200/report_freq)]) + '\n'
+    buff = "epoch," + ','.join([str(i*report_freq) for i in range(200/report_freq)]) + '\n'
     print(buff)
     f.write(buff)
     buff = "train_acc" + ','.join([str(i) for i in train_acc]) + '\n'
@@ -138,21 +138,24 @@ if __name__ == '__main__':
         print(buff)
         f.write(buff)
 
-        # first iterate through lr
+        # iterate through batch size
         best_acc = 0
-        lr_l = [lr_best - 10**(math.floor(math.log10(lr_best))-iteration)*i for i in range(4, -6, -1)]
-        for lr in lr_l:
-            cnn = cnnMNIST(lr=lr, batch=batch_size_best, drop_prob=keep_prob_best)
+        bs_l = [batch_size_best - 10 ** (math.floor(math.log10(batch_size_best)) - iteration) * i for i in
+                range(4, -6, -1)]
+        for bs in bs_l:
+            bs_int = int(bs)
+            cnn = cnnMNIST(lr=lr_best, batch=bs_int, drop_prob=keep_prob_best)
             train_acc = cnn.train(report_freq)
             test_acc = cnn.test_eval()
 
             if test_acc > best_acc:
-                lr_best = lr
+                best_acc = test_acc
+                batch_size_best = bs_int
 
-            buff = "lr,{},kp,{},bs,{}\n".format(lr, keep_prob_best, batch_size_best)
+            buff = "lr,{},kp,{},bs,{}\n".format(lr_best, keep_prob_best, bs)
             print(buff)
             f.write(buff)
-            buff = "epoch," + ','.join([str(i)*report_freq for i in range(200/report_freq)]) + '\n'
+            buff = "epoch," + ','.join([str(i * report_freq) for i in range(200 / report_freq)]) + '\n'
             print(buff)
             f.write(buff)
             buff = "train_acc" + ','.join([str(i) for i in train_acc]) + '\n'
@@ -165,19 +168,21 @@ if __name__ == '__main__':
 
         # iterate through keep probability
         best_acc = 0
-        kp_l = [keep_prob_best - 10 ** (math.floor(math.log10(keep_prob_best)) - iteration) * i for i in range(4, -6, -1)]
+        kp_l = [keep_prob_best - 10 ** (math.floor(math.log10(keep_prob_best)) - iteration) * i for i in
+                range(4, -6, -1)]
         for kp in kp_l:
             cnn = cnnMNIST(lr=lr_best, batch=batch_size_best, drop_prob=kp)
             train_acc = cnn.train(report_freq)
             test_acc = cnn.test_eval()
 
             if test_acc > best_acc:
+                best_acc = test_acc
                 keep_prob_best = kp
 
             buff = "lr,{},kp,{},bs,{}\n".format(lr_best, kp, batch_size_best)
             print(buff)
             f.write(buff)
-            buff = "epoch," + ','.join([str(i)*report_freq for i in range(200/report_freq)]) + '\n'
+            buff = "epoch," + ','.join([str(i * report_freq) for i in range(200 / report_freq)]) + '\n'
             print(buff)
             f.write(buff)
             buff = "train_acc" + ','.join([str(i) for i in train_acc]) + '\n'
@@ -188,22 +193,22 @@ if __name__ == '__main__':
             f.write(buff)
             f.flush()
 
-        # iterate through batch size
+        # iterate through lr
         best_acc = 0
-        bs_l = [batch_size_best - 10 ** (math.floor(math.log10(batch_size_best)) - iteration) * i for i in range(4, -6, -1)]
-        for bs in bs_l:
-            bs_int = int(bs)
-            cnn = cnnMNIST(lr=lr_best, batch=bs_int, drop_prob=keep_prob_best)
+        lr_l = [lr_best - 10**(math.floor(math.log10(lr_best))-iteration)*i for i in range(4, -6, -1)]
+        for lr in lr_l:
+            cnn = cnnMNIST(lr=lr, batch=batch_size_best, drop_prob=keep_prob_best)
             train_acc = cnn.train(report_freq)
             test_acc = cnn.test_eval()
 
             if test_acc > best_acc:
-                batch_size_best = bs
+                best_acc = test_acc
+                lr_best = lr
 
-            buff = "lr,{},kp,{},bs,{}\n".format(lr_best, keep_prob_best, bs)
+            buff = "lr,{},kp,{},bs,{}\n".format(lr, keep_prob_best, batch_size_best)
             print(buff)
             f.write(buff)
-            buff = "epoch," + ','.join([str(i)*report_freq for i in range(200/report_freq)]) + '\n'
+            buff = "epoch," + ','.join([str(i*report_freq) for i in range(200/report_freq)]) + '\n'
             print(buff)
             f.write(buff)
             buff = "train_acc" + ','.join([str(i) for i in train_acc]) + '\n'
