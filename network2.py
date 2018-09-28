@@ -69,7 +69,8 @@ class LogLikelihoodCost(object):
 
     @staticmethod
     def fn(a, y):
-        pass
+        tmp = np.sum(y*-np.log(a))
+        return tmp
 
     @staticmethod
     def delta(z, a, y):
@@ -108,7 +109,7 @@ class Network(object):
 
     # added by William Halsey
     # ability to control activation function of hidden and output layers
-    def __init__(self, sizes, cost=CrossEntropyCost, hidden_activation=SigmoidActivation, output_activation=SigmoidActivation):
+    def __init__(self, sizes, cost=CrossEntropyCost, hidden_activation=SigmoidActivation, output_activation=SigmoidActivation, dropout=0.0):
         """The list ``sizes`` contains the number of neurons in the respective
         layers of the network.  For example, if the list was [2, 3, 1]
         then it would be a three-layer network, with the first layer
@@ -125,6 +126,7 @@ class Network(object):
         self.cost=cost
         self.hidden_activation=hidden_activation
         self.output_activation=output_activation
+        self.dropout=dropout
 
     def default_weight_initializer(self):
         """Initialize each weight using a Gaussian distribution with mean 0
@@ -169,15 +171,16 @@ class Network(object):
             w, b = self.weights[i], self.biases[i]
 
             if i == len(self.biases)-1:
-                a = self.output_activation.activation(np.dot(w, a)+b)
+                a = self.output_activation.activation(np.dot(w, a)+b)*(1-self.dropout)
             else:
-                a = self.hidden_activation.activation(np.dot(w, a)+b)
+                a = self.hidden_activation.activation(np.dot(w, a)+b)*(1-self.dropout)
         # for b, w in zip(self.biases, self.weights):
         #     a = sigmoid(np.dot(w, a)+b)
         return a
 
     def SGD(self, training_data, epochs, mini_batch_size, eta,
             lmbda = 0.0,
+            gmma = 0.0,
             evaluation_data=None,
             monitor_evaluation_cost=True,
             monitor_evaluation_accuracy=True,
@@ -206,17 +209,20 @@ class Network(object):
         n = len(training_data)
         evaluation_cost, evaluation_accuracy = [], []
         training_cost, training_accuracy = [], []
+        weight_change = []
+        weight_change_final = []
         for j in xrange(epochs):
             random.shuffle(training_data)
             mini_batches = [
                 training_data[k:k+mini_batch_size]
                 for k in xrange(0, n, mini_batch_size)]
             for mini_batch in mini_batches:
-                self.update_mini_batch(
-                    mini_batch, eta, lmbda, len(training_data))
+                out=self.update_mini_batch(
+                    mini_batch, eta, lmbda, gmma, len(training_data))
+                weight_change.append(out)
             print "Epoch %s training complete" % j
             if monitor_training_cost:
-                cost = self.total_cost(training_data, lmbda)
+                cost = self.total_cost(training_data, lmbda, gmma)
                 training_cost.append(cost)
                 print "Cost on training data: {}".format(cost)
             if monitor_training_accuracy:
@@ -225,7 +231,7 @@ class Network(object):
                 print "Accuracy on training data: {}".format(
                     accuracy)
             if monitor_evaluation_cost:
-                cost = self.total_cost(evaluation_data, lmbda, convert=True)
+                cost = self.total_cost(evaluation_data, lmbda, gmma, convert=True)
                 evaluation_cost.append(cost)
                 print "Cost on evaluation data: {}".format(cost)
             if monitor_evaluation_accuracy:
@@ -234,10 +240,16 @@ class Network(object):
                 print "Accuracy on evaluation data: {}".format(
                     self.accuracy(evaluation_data))
             print
-        return evaluation_cost, evaluation_accuracy, \
-            training_cost, training_accuracy
 
-    def update_mini_batch(self, mini_batch, eta, lmbda, n):
+            tmp = []
+            for i in range(len(weight_change[0])):
+                tmp.append(np.linalg.norm(np.array([e[i] for e in weight_change])))
+            weight_change_final.append(tmp)
+
+        return evaluation_cost, evaluation_accuracy, \
+            training_cost, training_accuracy, weight_change_final
+
+    def update_mini_batch(self, mini_batch, eta, lmbda, gmma, n):
         """Update the network's weights and biases by applying gradient
         descent using backpropagation to a single mini batch.  The
         ``mini_batch`` is a list of tuples ``(x, y)``, ``eta`` is the
@@ -251,10 +263,20 @@ class Network(object):
             delta_nabla_b, delta_nabla_w = self.backprop(x, y)
             nabla_b = [nb+dnb for nb, dnb in zip(nabla_b, delta_nabla_b)]
             nabla_w = [nw+dnw for nw, dnw in zip(nabla_w, delta_nabla_w)]
-        self.weights = [(1-eta*(lmbda/n))*w-(eta/len(mini_batch))*nw
-                        for w, nw in zip(self.weights, nabla_w)]
+
+        if gmma==0.0:
+            self.weights = [(1-eta*(lmbda/n))*w-(eta/len(mini_batch))*nw
+                            for w, nw in zip(self.weights, nabla_w)]
+        else:
+            self.weights = [(w-eta*(gmma/n)*np.sign(w))-(eta/len(mini_batch))*nw
+                            for w, nw in zip(self.weights, nabla_w)]
+
         self.biases = [b-(eta/len(mini_batch))*nb
                        for b, nb in zip(self.biases, nabla_b)]
+
+        weight_change = [np.linalg.norm((eta/len(mini_batch))*nb) for nb in nabla_b]
+
+        return weight_change
 
     def backprop(self, x, y):
         """Return a tuple ``(nabla_b, nabla_w)`` representing the
@@ -269,6 +291,7 @@ class Network(object):
         zs = [] # list to store all the z vectors, layer by layer
         for i in range(len(self.biases)):
             w, b = self.weights[i], self.biases[i]
+            mask = np.random.binomial(1, 1-self.dropout, (len(b),1))
 
             z = np.dot(w, activation) + b
             zs.append(z)
@@ -276,8 +299,7 @@ class Network(object):
             if i == len(self.biases)-1:
                 activation = self.output_activation.activation(z)
             else:
-
-                activation = self.hidden_activation.activation(z)
+                activation = np.multiply(self.hidden_activation.activation(z), mask)
 
             activations.append(activation)
         # for b, w in zip(self.biases, self.weights):
@@ -336,7 +358,7 @@ class Network(object):
                         for (x, y) in data]
         return sum(int(x == y) for (x, y) in results) / float(len(results))
 
-    def total_cost(self, data, lmbda, convert=False):
+    def total_cost(self, data, lmbda, gmma, convert=False):
         """Return the total cost for the data set ``data``.  The flag
         ``convert`` should be set to False if the data set is the
         training data (the usual case), and to True if the data set is
@@ -348,12 +370,14 @@ class Network(object):
             a = self.feedforward(x)
             if convert: y = vectorized_result(y)
             cost += self.cost.fn(a, y)/len(data)
-        # l2-regularization
-        cost += 0.5*(lmbda/len(data))*sum(
-            np.linalg.norm(w)**2 for w in self.weights)
-        # l1-regularization
-        # cost += 0.5*(lmbda/len(data))*sum(
-        #     np.linalg.norm(w) for w in self.weights)
+        if gmma==0.0:
+            # l2-regularization
+            cost += 0.5*(lmbda/len(data))*sum(
+                np.linalg.norm(w)**2 for w in self.weights)
+        else:
+            # l1-regularization
+            cost += (gmma/len(data))*sum(
+                np.linalg.norm(w, 1) for w in self.weights)
         return cost
 
     def save(self, filename):
@@ -472,27 +496,41 @@ def load_data_wrapper(filename='../data/mnist.pkl.gz'):
 
 if __name__=="__main__":
 
-    import logging
-    logging.basicConfig(level=logging.DEBUG)
+    import math
 
-    logging.info("READING IN DATA...")
+    # import logging
+    # logging.basicConfig(level=logging.DEBUG)
+    #
+    # logging.info("READING IN DATA...")
+    #
+    # # for reading in normal dataset
+    # training, validation, test = load_data_wrapper("../data/mnist.pkl.gz")
+    #
+    # # for reading in expanded dataset
+    # # training, validation, test = load_data_wrapper("../data/mnist_expanded.pkl.gz")
+    #
+    # # the network requires:
+    # logging.info("INITIALIZING NETWORK...")
+    # network = Network([784, 10])
+    #
+    # network.SGD(training, 100, 100, l, evaluation_data=validation)
+    #
+    # results = network.accuracy(test)
+    #
+    # print results
 
-    # for reading in normal dataset
-    training, validation, test = load_data_wrapper("../data/mnist.pkl.gz")
+    answer = SoftmaxActivation.activation(np.array([i / 10. for i in range(10)]))
+    print(answer)
+    for i in range(10):
+        intput = np.array([0]*10)
+        intput[i] = 1
+        cost = LogLikelihoodCost.fn(answer, np.array([intput]))
 
-    # for reading in expanded dataset
-    # training, validation, test = load_data_wrapper("../data/mnist_expanded.pkl.gz")
+        compare = -math.log(answer[i])
 
-    # the network requires:
-    logging.info("INITIALIZING NETWORK...")
-    network = Network([784, 10])
+        print("{}, {}\n".format(cost, compare))
 
-    network.SGD(training, 100, 100, l, evaluation_data=validation)
-
-    results = network.accuracy(test)
-
-    print results
-
+    exit()
 
     # import random
     # array = np.array([random.uniform(0, 1) for i in range(10)])
